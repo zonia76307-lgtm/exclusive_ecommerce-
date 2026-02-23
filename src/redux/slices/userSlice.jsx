@@ -8,10 +8,18 @@ const userSlice = createSlice({
   name: 'user',
   initialState,
   reducers: {
+    // Login ke liye use hota hai
     login: (state, action) => {
       state.userInfo = action.payload;
       localStorage.setItem('userInfo', JSON.stringify(action.payload));
     },
+    
+    // Profile update ke baad data sync karne ke liye
+    setCredentials: (state, action) => {
+      state.userInfo = action.payload;
+      localStorage.setItem('userInfo', JSON.stringify(action.payload));
+    },
+
     logout: (state) => {
       state.userInfo = null;
       localStorage.removeItem('userInfo');
@@ -20,5 +28,5 @@ const userSlice = createSlice({
   },
 });
 
-export const { login, logout } = userSlice.actions;
+export const { login, logout, setCredentials } = userSlice.actions;
 export default userSlice.reducer;

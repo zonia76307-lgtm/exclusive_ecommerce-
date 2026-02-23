@@ -1,135 +1,129 @@
-import React, { useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
-import { removeFromCart, updateCartQty, syncCartWithDB, fetchCartFromDB } from '../redux/slices/cartSlice';
-import { toast } from 'react-toastify';
-import { FiTrash2, FiChevronUp, FiChevronDown } from 'react-icons/fi';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { Link } from 'react-router-dom';
 
-const Cart = () => {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { cartItems } = useSelector((state) => state.cart);
-  const { userInfo } = useSelector((state) => state.user);
-  
-  // 🔥 Ref for Debouncing
-  const timeoutRef = useRef(null);
+const Orders = () => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const BASE_URL = "http://localhost:5000";
+  // ✅ Use BASE_URL from .env
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   useEffect(() => {
-    if (userInfo?.token) {
-      dispatch(fetchCartFromDB());
-    }
-  }, [dispatch, userInfo]);
+    const fetchOrders = async () => {
+      const savedInfo = localStorage.getItem('userInfo');
+      const userInfo = savedInfo ? JSON.parse(savedInfo) : null;
 
-  const getImageUrl = (path) => {
-    if (!path) return "https://via.placeholder.com/100";
-    return path.startsWith("http") ? path : `${BASE_URL}${path}`;
-  };
+      if (!userInfo || !userInfo.token) {
+        setLoading(false);
+        return;
+      }
 
-  const updateQty = (item, newQty) => {
-    if (newQty < 1) return;
+      try {
+        const config = { 
+          headers: { Authorization: `Bearer ${userInfo.token}` } 
+        };
+        
+        const { data } = await axios.get(`${BASE_URL}/api/orders/myorders`, config);
+        setOrders(data);
+      } catch (err) { 
+        console.error("Error fetching orders:", err.response?.data || err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // 1. Pehle Redux/Frontend update karein (Foran response ke liye)
-    dispatch(updateCartQty({ _id: item._id, qty: newQty }));
+    fetchOrders();
+  }, [BASE_URL]); // Add BASE_URL to dependency array
 
-    // 2. Backend Sync with Debounce (500ms wait)
-    if (userInfo?.token) {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      
-      timeoutRef.current = setTimeout(() => {
-        dispatch(syncCartWithDB({ 
-          productId: item._id, 
-          quantity: newQty, 
-          actionType: 'update' 
-        }));
-      }, 500);
-    }
-  };
-
-  const handleRemove = (id) => {
-    dispatch(removeFromCart(id));
-    if (userInfo?.token) {
-      dispatch(syncCartWithDB({ productId: id, actionType: 'remove' }));
-    }
-    toast.info("Removed from cart");
-  };
-
-  const calculateTotal = () => cartItems.reduce((acc, item) => acc + (item.price || 0) * (item.qty || 1), 0);
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-[#DB4444] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-500 animate-pulse font-medium">Fetching your orders...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-[1170px] mx-auto py-20 px-4 font-['Inter']">
-      <div className="text-gray-400 mb-10">
-        <Link to="/" className="hover:text-black">Home</Link> / <span className="text-black">Cart</span>
-      </div>
+    <div className="max-w-[1170px] mx-auto py-10 md:py-[80px] px-4 font-['Inter'] min-h-screen">
       
-      {cartItems.length === 0 ? (
-        <div className="text-center py-20">
-          <p className="text-2xl mb-10 italic text-gray-400">Your cart is empty.</p>
-          <Link to="/" className="bg-[#DB4444] text-white px-12 py-4 rounded-sm inline-block hover:bg-black transition-all font-medium">
-            Return To Shop
+      {/* Breadcrumb */}
+      <div className="text-[12px] md:text-[14px] text-gray-500 mb-6 md:mb-[40px]">
+        <Link to="/" className="hover:text-[#DB4444] transition-colors">Home</Link> 
+        <span className="mx-2">/</span> 
+        <span className="text-black">My Orders</span>
+      </div>
+
+      <h2 className="text-[20px] md:text-[24px] font-bold mb-8 border-l-4 border-[#DB4444] pl-4 uppercase tracking-tight">
+        Order History
+      </h2>
+
+      {orders.length === 0 ? (
+        <div className="text-center py-16 md:py-20 border-2 border-dashed rounded-lg bg-gray-50">
+          <p className="text-gray-500 mb-6 italic">No orders found in your history.</p>
+          <Link to="/" className="bg-[#DB4444] text-white px-8 py-3 rounded-[4px] font-medium inline-block hover:bg-black transition-all">
+            Start Shopping
           </Link>
         </div>
       ) : (
         <>
-          <div className="hidden md:grid grid-cols-4 shadow-sm p-6 mb-10 font-medium bg-white border border-gray-100">
-            <span>Product</span>
-            <span>Price</span>
-            <span className="text-center">Quantity</span>
-            <span className="text-right">Subtotal</span>
+          {/* Desktop Table */}
+          <div className="hidden md:block w-full overflow-hidden shadow-sm rounded-lg border border-gray-100">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-[#F5F5F5]">
+                <tr>
+                  <th className="p-4 font-semibold text-sm">ORDER ID</th>
+                  <th className="p-4 font-semibold text-sm">DATE</th>
+                  <th className="p-4 font-semibold text-sm">STATUS</th>
+                  <th className="p-4 font-semibold text-right text-sm">TOTAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order._id} className="border-b hover:bg-gray-50/50 transition-colors">
+                    <td className="p-4 font-mono text-[12px] text-gray-600">
+                      #{order._id.toUpperCase()}
+                    </td>
+                    <td className="p-4 text-sm">
+                      {new Date(order.createdAt).toLocaleDateString('en-GB')}
+                    </td>
+                    <td className="p-4">
+                       <StatusBadge status={order.status} />
+                    </td>
+                    <td className="p-4 font-bold text-right text-black">
+                      ${order.totalPrice?.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          {cartItems.map((item) => (
-            <div key={item._id} className="grid grid-cols-2 md:grid-cols-4 items-center shadow-sm p-6 mb-5 bg-white border border-gray-100 relative group rounded-sm hover:shadow-md transition-all">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <img src={getImageUrl(item.image)} alt={item.name} className="w-12 h-12 object-contain bg-[#F5F5F5] p-1" />
-                  <button onClick={() => handleRemove(item._id)} className="absolute -top-2 -left-2 bg-[#DB4444] text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <FiTrash2 size={12}/>
-                  </button>
+          {/* Mobile Cards */}
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {orders.map((order) => (
+              <div key={order._id} className="border rounded-lg p-5 bg-white shadow-sm border-gray-100">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Order ID</p>
+                    <p className="font-mono text-xs font-bold text-gray-700">#{order._id.toUpperCase()}</p>
+                  </div>
+                  <StatusBadge status={order.status} />
                 </div>
-                <span className="font-medium truncate w-32 md:w-40">{item.name}</span>
-              </div>
-              
-              <span className="hidden md:block">${item.price}</span>
-              
-              <div className="flex justify-center">
-                <div className="flex items-center border border-gray-300 rounded px-3 py-2 gap-4">
-                  <span className="font-bold min-w-[20px] text-center">{item.qty || 1}</span>
-                  <div className="flex flex-col border-l pl-2 border-gray-200">
-                    <button onClick={() => updateQty(item, (item.qty || 1) + 1)} className="hover:text-[#DB4444]"><FiChevronUp size={16}/></button>
-                    <button onClick={() => updateQty(item, (item.qty || 1) - 1)} className="hover:text-[#DB4444]"><FiChevronDown size={16}/></button>
+                
+                <div className="flex justify-between items-end border-t border-gray-50 pt-4">
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Date</p>
+                    <p className="text-sm font-medium">{new Date(order.createdAt).toLocaleDateString('en-GB')}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Total Amount</p>
+                    <p className="text-lg font-bold text-[#DB4444]">${order.totalPrice?.toFixed(2)}</p>
                   </div>
                 </div>
               </div>
-              
-              <span className="text-right font-bold">${((item.price || 0) * (item.qty || 1)).toFixed(2)}</span>
-            </div>
-          ))}
-
-          <div className="flex flex-col lg:flex-row justify-between items-start mt-10 gap-10">
-            <Link to="/" className="border border-black/30 px-12 py-4 rounded-sm font-medium hover:bg-[#DB4444] hover:text-white hover:border-[#DB4444] transition-all">
-              Return To Shop
-            </Link>
-
-            <div className="w-full lg:w-[470px] border-2 border-black p-8 rounded-sm">
-              <h3 className="text-xl font-medium mb-6">Cart Total</h3>
-              <div className="flex justify-between border-b border-gray-200 pb-4 mb-4">
-                <span>Subtotal:</span>
-                <span>${calculateTotal().toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between border-b border-gray-200 pb-4 mb-4">
-                <span>Shipping:</span>
-                <span className="text-green-600">Free</span>
-              </div>
-              <div className="flex justify-between mb-8 text-xl font-bold">
-                <span>Total:</span>
-                <span>${calculateTotal().toFixed(2)}</span>
-              </div>
-              <button onClick={() => navigate('/checkout')} className="w-full bg-[#DB4444] text-white py-4 rounded-sm font-medium hover:bg-black transition-all">
-                Process to Checkout
-              </button>
-            </div>
+            ))}
           </div>
         </>
       )}
@@ -137,4 +131,20 @@ const Cart = () => {
   );
 };
 
-export default Cart;
+// Sub-component for Status Badge
+const StatusBadge = ({ status }) => {
+  const isDelivered = status === 'Delivered';
+  const isCancelled = status === 'Cancelled';
+  
+  return (
+    <span className={`px-3 py-1 rounded-[4px] text-[10px] font-bold uppercase tracking-wider ${
+      isDelivered ? 'bg-green-100 text-green-700' : 
+      isCancelled ? 'bg-gray-100 text-gray-500' :
+      'bg-[#DB4444]/10 text-[#DB4444]'
+    }`}>
+      {status || 'Processing'}
+    </span>
+  );
+};
+
+export default Orders;

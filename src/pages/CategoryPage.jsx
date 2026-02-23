@@ -7,7 +7,7 @@ const CategoryPage = () => {
   const { categoryName } = useParams(); 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const BASE_URL = "http://localhost:5000"; // Backend ka URL
+  const BASE_URL = "http://localhost:5000";
 
   useEffect(() => {
     const fetchCategoryProducts = async () => {
@@ -42,45 +42,56 @@ const CategoryPage = () => {
   }, [categoryName, BASE_URL]);
 
   return (
-    <div className="max-w-[1170px] mx-auto py-20 px-4 font-['Inter']">
-      <div className="flex gap-2 text-sm text-gray-400 mb-10">
+    <div className="max-w-[1170px] mx-auto py-10 md:py-20 px-4 font-['Inter']">
+      
+      {/* RESPONSIVE BREADCRUMBS */}
+      <div className="flex flex-wrap items-center gap-2 text-[12px] md:text-sm text-gray-400 mb-6 md:mb-10">
         <Link to="/" className="hover:text-black transition-all">Home</Link>
-        <span>/</span>
-        <span className="text-black capitalize font-medium">
+        <span className="text-gray-300">/</span>
+        <span className="text-black capitalize font-semibold truncate max-w-[150px] md:max-w-none">
             {categoryName.replace(/-/g, ' ')}
         </span>
       </div>
 
-      <div className="flex items-center gap-4 mb-10">
-        <div className="w-5 h-10 bg-[#DB4444] rounded-sm shadow-sm"></div>
-        <div>
-          <h2 className="text-3xl font-bold uppercase tracking-tight">
+      {/* HEADER SECTION */}
+      <div className="flex items-center gap-3 md:gap-4 mb-8 md:mb-10">
+        <div className="w-4 h-8 md:w-5 md:h-10 bg-[#DB4444] rounded-sm shadow-sm shrink-0"></div>
+        <div className="min-w-0">
+          <h2 className="text-xl md:text-3xl font-black uppercase tracking-tight truncate">
             {categoryName.replace(/-/g, ' ')}
           </h2>
-          <p className="text-sm text-gray-500 mt-1">{products.length} Products found</p>
+          <p className="text-[11px] md:text-sm text-gray-500 font-medium mt-0.5">
+            Showing {products.length} results
+          </p>
         </div>
       </div>
 
+      {/* SKELETON LOADING - Responsive Columns */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
            {[1,2,3,4,5,6,7,8].map(n => (
-             <div key={n} className="h-[350px] bg-gray-100 animate-pulse rounded-sm border border-gray-50"></div>
+             <div key={n} className="h-[250px] md:h-[350px] bg-gray-100 animate-pulse rounded-sm border border-gray-50"></div>
            ))}
         </div>
       ) : products.length === 0 ? (
-        <div className="py-20 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-          <div className="text-4xl mb-4">📦</div>
-          <h3 className="text-xl text-gray-600 font-semibold italic">
-            "Oops! We couldn't find any products in this category."
+        /* EMPTY STATE */
+        <div className="py-16 md:py-24 text-center border-2 border-dashed border-gray-100 rounded-xl bg-gray-50/50 flex flex-col items-center">
+          <div className="text-5xl md:text-6xl mb-6 grayscale opacity-50">🔍</div>
+          <h3 className="text-lg md:text-xl text-gray-800 font-black italic max-w-[280px] md:max-w-none">
+            "We couldn't find any products in this category."
           </h3>
-          <Link to="/" className="inline-block mt-8 bg-black text-white px-10 py-3 rounded-sm hover:bg-[#DB4444] transition-all">
-            Continue Shopping
+          <p className="text-gray-400 text-sm mt-2 px-6">Check back later or explore other sections.</p>
+          <Link to="/" className="inline-block mt-8 bg-black text-white px-8 md:px-12 py-3.5 rounded-sm hover:bg-[#DB4444] transition-all font-bold text-sm tracking-widest active:scale-95 shadow-lg">
+            BACK TO SHOP
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        /* PRODUCT GRID - Optimized for small screens */
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-8">
           {products.map(product => (
-            <ProductCard key={product._id} product={product} />
+            <div key={product._id} className="transition-transform duration-300 hover:-translate-y-1">
+               <ProductCard product={product} />
+            </div>
           ))}
         </div>
       )}

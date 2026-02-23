@@ -3,12 +3,13 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { logout } from '../redux/slices/userSlice'; 
+// Zaroori: Apne userSlice se setCredentials import karein (agar naam alag hai toh woh use karein)
+import { logout, setCredentials } from '../redux/slices/userSlice'; 
 import { 
   FiPieChart, FiShoppingBag, FiUser, 
   FiPackage, FiDollarSign, FiClock, FiCheckCircle,
   FiSearch, FiBell, FiLogOut, FiSettings, FiArrowLeft,
-  FiMenu, FiX // Added for Hamburger
+  FiMenu, FiX 
 } from 'react-icons/fi';
 
 const UserDashboard = () => {
@@ -20,9 +21,10 @@ const UserDashboard = () => {
   const [stats, setStats] = useState({ totalOrders: 0, totalSpent: 0, pendingOrders: 0, orders: [] });
   const [profile, setProfile] = useState({ name: userInfo?.name || '', password: '', confirmPassword: '' });
   const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const BASE_URL = "http://localhost:5000";
+  // 🔥 UPDATED: Using .env variable
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -38,7 +40,7 @@ const UserDashboard = () => {
       }
     };
     if (userInfo?.token) fetchDashboardData();
-  }, [userInfo]);
+  }, [userInfo, BASE_URL]);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -51,13 +53,29 @@ const UserDashboard = () => {
     if (profile.password && profile.password !== profile.confirmPassword) {
       return toast.error("Passwords do not match!");
     }
+    
     try {
-      const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      await axios.put(`${BASE_URL}/api/users/profile`, profile, config);
+      const config = { 
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.token}` 
+        } 
+      };
+
+      // 🔥 API Call to updated backend route
+      const { data } = await axios.put(`${BASE_URL}/api/users/profile`, {
+        name: profile.name,
+        password: profile.password
+      }, config);
+
+      // 🔥 Sync Redux & LocalStorage (UI will update instantly)
+      dispatch(setCredentials({ ...data }));
+      
       toast.success("Profile updated successfully!");
       setProfile({ ...profile, password: '', confirmPassword: '' });
     } catch (err) {
-      toast.error("Update failed!");
+      const errMsg = err.response?.data?.message || "Update failed!";
+      toast.error(errMsg);
     }
   };
 
@@ -124,7 +142,6 @@ const UserDashboard = () => {
         {/* CUSTOM NAVBAR */}
         <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 lg:px-10 sticky top-0 z-50">
           <div className="flex items-center gap-4">
-            {/* HAMBURGER BUTTON */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
@@ -160,8 +177,7 @@ const UserDashboard = () => {
 
         {/* CONTENT AREA */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-10 bg-[#F4F7FE]">
-          
-          {/* OVERVIEW TAB */}
+          {/* Tabs render logic remains same as before... */}
           {activeTab === 'overview' && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <h1 className="text-2xl font-black text-gray-800 mb-2">Welcome, {userInfo.name.split(' ')[0]}!</h1>
@@ -195,7 +211,6 @@ const UserDashboard = () => {
              </div>
           )}
 
-          {/* ORDERS TAB */}
           {activeTab === 'orders' && (
             <div className="animate-in fade-in duration-500 bg-white rounded-3xl shadow-sm border border-white overflow-hidden">
               <div className="p-8 border-b border-gray-50 flex justify-between items-center">
@@ -234,7 +249,6 @@ const UserDashboard = () => {
             </div>
           )}
 
-          {/* SETTINGS TAB */}
           {activeTab === 'settings' && (
             <div className="animate-in slide-in-from-right-4 duration-500 max-w-2xl bg-white p-6 lg:p-10 rounded-3xl shadow-sm border border-white">
               <h2 className="text-2xl font-black text-gray-800 mb-2">Account Settings</h2>

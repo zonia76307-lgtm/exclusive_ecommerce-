@@ -18,7 +18,6 @@ const Wishlist = () => {
     }
   }, [dispatch, userInfo]);
 
-  // 🔥 Helper function for Discounted Price
   const getDiscountedPrice = (product) => {
     if (product.onSale && product.discountPercentage > 0) {
       return Math.round(product.price - (product.price * product.discountPercentage / 100));
@@ -26,15 +25,13 @@ const Wishlist = () => {
     return product.price;
   };
 
-  // 🔥 Move ALL to Cart Function
   const handleMoveAllToCart = async () => {
     if (wishlistItems.length === 0) return;
+    const toastId = toast.loading("Moving items to bag...");
 
     try {
       for (const item of wishlistItems) {
         const salePrice = getDiscountedPrice(item);
-        
-        // Price update kar ke cart mein bhejein
         dispatch(addToCart({ ...item, price: salePrice, qty: 1 }));
         
         if (userInfo?.token) {
@@ -47,24 +44,18 @@ const Wishlist = () => {
       }
 
       await dispatch(clearWishlistServer()).unwrap();
-      toast.success("All items moved to bag!", { position: "top-right" });
+      toast.update(toastId, { render: "All items moved to bag!", type: "success", isLoading: false, autoClose: 3000 });
       dispatch(getWishlist());
-
     } catch (error) {
-      console.error("Move all error:", error);
-      toast.error("Kuch items cart mein nahi ja sakay.");
+      toast.update(toastId, { render: "Some items failed to move.", type: "error", isLoading: false, autoClose: 3000 });
     }
   };
 
-  // 🔥 Move Single to Cart Function
   const handleMoveToCart = async (product) => {
     try {
       const salePrice = getDiscountedPrice(product);
-
-      // 1. Frontend update with discounted price
       dispatch(addToCart({ ...product, price: salePrice, qty: 1 }));
       
-      // 2. Database Sync
       if (userInfo?.token) {
         await dispatch(syncCartWithDB({ 
           productId: product._id, 
@@ -73,37 +64,44 @@ const Wishlist = () => {
         })).unwrap();
       }
 
-      // 3. Wishlist se remove karein
       await dispatch(removeFromWishlistServer(product._id)).unwrap();
-      
       toast.success(`${product.name} added to cart!`);
     } catch (error) {
-      toast.error("Cart sync fail ho gaya.");
+      toast.error("Cart sync failed.");
     }
   };
 
   const handleRemove = (product) => {
     dispatch(removeFromWishlistServer(product._id));
-    toast.error(`${product.name} removed from wishlist`);
+    toast.info(`${product.name} removed from wishlist`);
   };
 
-  if (loading) return <div className="py-20 text-center font-bold text-xl italic uppercase">Loading Wishlist...</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh]">
+      <div className="w-12 h-12 border-4 border-[#DB4444] border-t-transparent rounded-full animate-spin"></div>
+      <p className="mt-4 text-gray-500 font-bold uppercase tracking-widest text-sm">Loading Wishlist...</p>
+    </div>
+  );
 
   return (
-    <div className="max-w-[1170px] mx-auto py-20 px-4 font-['Inter']">
+    <div className="max-w-[1170px] mx-auto py-10 md:py-20 px-4 font-['Inter']">
+      {/* Scope specific CSS for product card overrides */}
       <style>{`
         .wishlist-container .relative button:not(.custom-trash) {
           display: none !important;
         }
       `}</style>
 
-      <div className="flex justify-between items-center mb-10">
-        <h2 className="text-xl font-medium text-black">Wishlist ({wishlistItems.length})</h2>
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 md:mb-10">
+        <h2 className="text-lg md:text-xl font-medium text-black">
+          Wishlist <span className="text-gray-500 ml-1">({wishlistItems.length})</span>
+        </h2>
         
         {wishlistItems.length > 0 && (
           <button 
             onClick={handleMoveAllToCart}
-            className="border border-black px-10 py-4 hover:bg-[#DB4444] hover:text-white hover:border-[#DB4444] transition-all text-sm font-medium uppercase"
+            className="w-full sm:w-auto border border-black/30 px-6 md:px-10 py-3 md:py-4 hover:bg-[#DB4444] hover:text-white hover:border-[#DB4444] transition-all text-xs md:text-sm font-bold uppercase tracking-wider rounded-sm active:scale-95"
           >
             Move All To Bag
           </button>
@@ -111,32 +109,39 @@ const Wishlist = () => {
       </div>
 
       {wishlistItems.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed rounded-lg bg-gray-50">
-          <p className="text-gray-500 mb-6 font-medium italic">"Your wishlist is feeling lonely..."</p>
-          <Link to="/" className="bg-[#DB4444] text-white px-10 py-4 rounded-sm font-bold uppercase hover:bg-black transition-all">
+        <div className="text-center py-16 md:py-24 border-2 border-dashed rounded-xl bg-gray-50 flex flex-col items-center">
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+             <FiShoppingCart className="text-gray-300" size={40} />
+          </div>
+          <p className="text-gray-400 mb-8 font-medium italic text-lg">"Your wishlist is feeling lonely..."</p>
+          <Link to="/" className="bg-[#DB4444] text-white px-10 py-4 rounded-sm font-bold uppercase hover:bg-black transition-all shadow-md active:scale-95">
             Continue Shopping
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 wishlist-container">
+        /* Responsive Grid: 2 columns on small mobile, 4 on desktop */
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 wishlist-container">
           {wishlistItems.map((product) => (
-            <div key={product._id} className="flex flex-col gap-2 group">
-              <div className="relative">
-                {/* 🔥 Pass kiya showBadge={false} taake wishlist mein badge na dikhe */}
+            <div key={product._id} className="flex flex-col h-full group">
+              <div className="relative flex-1">
                 <ProductCard product={product} showBadge={false} />
+                
+                {/* Trash icon - Optimized for touch */}
                 <button 
                   onClick={() => handleRemove(product)}
-                  className="custom-trash absolute top-4 right-4 bg-white p-2 rounded-full shadow-md hover:text-[#DB4444] transition-all z-20"
+                  className="custom-trash absolute top-2 right-2 md:top-4 md:right-4 bg-white p-2 rounded-full shadow-md text-gray-500 hover:text-[#DB4444] transition-all z-20 active:scale-110"
                 >
-                  <FiTrash2 size={18} />
+                  <FiTrash2 className="w-4 h-4 md:w-[18px] md:h-[18px]" />
                 </button>
               </div>
 
+              {/* Add to Cart Button - Always visible on mobile for UX */}
               <button 
                 onClick={() => handleMoveToCart(product)}
-                className="w-full bg-black text-white py-3 flex items-center justify-center gap-3 text-sm font-bold uppercase hover:bg-[#DB4444] transition-all rounded-sm"
+                className="w-full bg-black text-white py-3 mt-2 flex items-center justify-center gap-2 text-[10px] md:text-xs font-bold uppercase hover:bg-[#DB4444] transition-all rounded-sm shadow-sm active:bg-[#DB4444]"
               >
-                <FiShoppingCart size={18} /> Add To Cart
+                <FiShoppingCart size={16} /> <span className="hidden xs:inline">Add To Cart</span>
+                <span className="xs:hidden">Add</span>
               </button>
             </div>
           ))}
